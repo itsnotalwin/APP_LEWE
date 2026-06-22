@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Custom Palette: Light Mode */
+  --color-parchment: #faf6f0;
+  --color-espresso: #272421;
+  --color-sand: #e6dac6;
+  --color-sand-hover: #dbccb4;
+
+  /* Custom Palette: Dark Mode */
+  --color-cocoa: #121110;
+  --color-espresso-surface: #1a1817;
+  --color-espresso-surface-bright: #242120;
+  --color-alabaster: #fcfaf7;
+
+  /* Interaction Colors */
+  --color-accent: #8b5e3c; /* A warm earthy accent that fits both themes */
+  --color-accent-hover: #724d31;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    @apply bg-parchment text-espresso transition-colors duration-500;
+    /* PWA Fullscreen safe area handling */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Support manual .dark class on html or body */
+  :root.dark body {
+    @apply bg-cocoa text-alabaster;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not(.light) body {
+      @apply bg-cocoa text-alabaster;
+    }
+  }
+}
+
+/* Custom visual scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-sand);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-sand-hover);
+}
+
+/* Micro pulse keyframes */
+@keyframes softPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(0.98); }
+}
+
+.soft-pulse {
+  animation: softPulse 3s infinite ease-in-out;
+}
+
+.clay-card {
+  @apply bg-white border border-sand shadow-[0_2px_15px_-3px_rgba(39,36,33,0.04)] rounded-[2.5rem] transition-all duration-300;
+}
+
+.clay-card-ambient {
+  @apply bg-gradient-to-br from-white to-parchment border border-sand shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem] transition-all duration-300;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .clay-card {
+    @apply bg-espresso-surface border-white/[0.03] shadow-[0_4px_24px_rgba(0,0,0,0.4)];
+  }
+  :root:not(.light) .clay-card-ambient {
+    @apply bg-gradient-to-br from-espresso-surface to-cocoa border-white/[0.05] shadow-[0_8px_40px_rgba(0,0,0,0.5)];
+  }
+}
+
+:root.dark .clay-card {
+  @apply bg-espresso-surface border-white/[0.03] shadow-[0_4px_24px_rgba(0,0,0,0.4)];
+}
+:root.dark .clay-card-ambient {
+  @apply bg-gradient-to-br from-espresso-surface to-cocoa border-white/[0.05] shadow-[0_8px_40px_rgba(0,0,0,0.5)];
+}
+
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-br from-espresso to-espresso/60;
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-gradient {
+    @apply from-alabaster to-alabaster/50;
+  }
+}

@@ -1,0 +1,489 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect } from 'react';
+import { 
+  Clock, 
+  Flame, 
+  Layers, 
+  CheckCircle2, 
+  TrendingUp, 
+  ArrowUpRight, 
+  Plus, 
+  Sparkles, 
+  CheckSquare, 
+  Coins, 
+  Smile, 
+  Calendar 
+} from 'lucide-react';
+import { Habit, Task, Transaction, DailyFocus, LifeOSData } from '../types';
+
+interface DashboardTabProps {
+  data: LifeOSData;
+  updateData: (newData: Partial<LifeOSData>) => void;
+  setActiveTab: (tab: string) => void;
+  getCurrentDate: () => string;
+}
+
+export default function DashboardTab({ data, updateData, setActiveTab, getCurrentDate }: DashboardTabProps) {
+  const [time, setTime] = useState(new Date());
+  const [newFocusInput, setNewFocusInput] = useState('');
+  const [isEditingFocus, setIsEditingFocus] = useState(!data.focus?.text);
+
+  // Keep digital clock updating smoothly
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const todayStr = getCurrentDate();
+
+  // Compute greeting based on hours
+  const getGreeting = () => {
+    const hour = time.getHours();
+    if (hour < 5) return 'Good Night';
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  // Calculations
+  const habitsToday = data.habits || [];
+  const completedHabitsCount = habitsToday.filter(h => h.history[todayStr] === true).length;
+  const totalHabitsCount = habitsToday.length;
+  const habitCompletionRate = totalHabitsCount > 0 ? Math.round((completedHabitsCount / totalHabitsCount) * 100) : 0;
+
+  const incompleteTasks = (data.tasks || []).filter(t => !t.completed);
+  const urgentTasks = incompleteTasks
+    .filter(t => t.priority === 'high')
+    .slice(0, 3);
+  const remainingTasksCount = incompleteTasks.length;
+
+  const thisMonthExpenses = (data.transactions || [])
+    .filter(t => {
+      const parts = t.date.split('-');
+      const todayParts = todayStr.split('-');
+      return t.type === 'expense' && parts[0] === todayParts[0] && parts[1] === todayParts[1];
+    })
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+  const budgetLimit = 1200; // static demo limit
+  const budgetPercentage = Math.min(Math.round((thisMonthExpenses / budgetLimit) * 100), 100);
+
+  // Handle focus edit/complete
+  const handleSaveFocus = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFocusInput.trim()) return;
+    updateData({
+      focus: {
+        text: newFocusInput.trim(),
+        completed: false,
+        date: todayStr,
+      },
+    });
+    setIsEditingFocus(false);
+  };
+
+  const handleToggleFocus = () => {
+    if (!data.focus) return;
+    updateData({
+      focus: {
+        ...data.focus,
+        completed: !data.focus.completed,
+      },
+    });
+  };
+
+  const handleClearFocus = () => {
+    setNewFocusInput('');
+    updateData({
+      focus: {
+        text: '',
+        completed: false,
+        date: todayStr,
+      },
+    });
+    setIsEditingFocus(true);
+  };
+
+  // Quick toggle habit today
+  const toggleHabit = (id: string) => {
+    const updatedHabits = data.habits.map(h => {
+      if (h.id === id) {
+        const isCompletedNow = !h.history[todayStr];
+        const newHistory = { ...h.history, [todayStr]: isCompletedNow };
+        
+        // Simple streak recalculator
+        let currentStreak = h.streak;
+        if (isCompletedNow) {
+          currentStreak += 1;
+        } else {
+          currentStreak = Math.max(0, currentStreak - 1);
+        }
+        const maxStreak = Math.max(h.maxStreak, currentStreak);
+
+        return { ...h, history: newHistory, streak: currentStreak, maxStreak };
+      }
+      return h;
+    });
+    updateData({ habits: updatedHabits });
+  };
+
+  // Formatting date nicely
+  const formatDateFull = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  const formatClock = (date: Date) => {
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Prime Header & Timebox HUD */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+        <div className="md:col-span-2 bg-gradient-to-br from-accent to-espresso text-alabaster p-6 rounded-3xl shadow-lg border border-sand/10 relative overflow-hidden flex flex-col justify-between group">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Sparkles className="w-40 h-40 text-white" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2 text-sand text-sm font-medium tracking-wide">
+              <Calendar className="w-4 h-4" />
+              <span>{formatDateFull(time)}</span>
+            </div>
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight mt-2 text-white drop-shadow-sm">
+              {getGreeting()}, Chief
+            </h1>
+            <p className="text-sand/80 text-sm mt-2 max-w-lg leading-relaxed font-medium">
+              Your personal workspace is ready. Today is a clean canvas to optimize habits, execute actions, and capture creative logs.
+            </p>
+          </div>
+
+          {/* Dynamic Daily Focus HUD */}
+          <div className="mt-6 pt-6 border-t border-sand/20">
+            <div className="text-[10px] text-sand/60 font-black uppercase tracking-[0.2em] mb-3">
+              Today's Primary Objective
+            </div>
+            {isEditingFocus ? (
+              <form onSubmit={handleSaveFocus} className="flex gap-2">
+                <input
+                  type="text"
+                  value={newFocusInput}
+                  onChange={(e) => setNewFocusInput(e.target.value)}
+                  placeholder="Set your absolute #1 priority for target focus today..."
+                  className="flex-1 bg-black/20 border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sand/50 placeholder:text-sand/30 backdrop-blur-sm"
+                  required
+                />
+                <button
+                  type="submit"
+                  className="bg-white text-espresso hover:bg-parchment font-black text-xs px-5 py-2.5 rounded-xl transition-all duration-200 flex items-center space-x-2 cursor-pointer shadow-sm active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Lock In</span>
+                </button>
+              </form>
+            ) : (
+              <div className="flex items-center justify-between bg-black/20 border border-white/5 rounded-2xl p-4 gap-3 backdrop-blur-md group/focus">
+                <div className="flex items-center space-x-4 flex-1 min-w-0">
+                  <button 
+                    onClick={handleToggleFocus}
+                    className="flex-shrink-0 cursor-pointer text-sand/50 hover:text-white transition-colors"
+                  >
+                    <CheckSquare className={`w-7 h-7 transition-all ${data.focus?.completed ? 'fill-white stroke-espresso text-espresso' : 'opacity-80 hover:scale-110'}`} />
+                  </button>
+                  <span className={`text-sm md:text-base font-bold truncate transition-all ${data.focus?.completed ? 'line-through text-sand/40' : 'text-white'}`}>
+                    {data.focus?.text}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  {data.focus?.completed && (
+                    <span className="bg-white/10 text-white text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-wider">
+                      Done
+                    </span>
+                  )}
+                  <button 
+                    onClick={handleClearFocus}
+                    className="text-xs text-sand/50 hover:text-white underline decoration-sand/30 underline-offset-4 cursor-pointer font-bold transition-colors"
+                  >
+                    Change
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Dynamic Digital Clock Card */}
+        <div className="clay-card p-6 flex flex-col justify-between group">
+          <div className="flex items-center justify-between text-espresso/40 dark:text-alabaster/40">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Chronometer HUD</span>
+            <Clock className="w-5 h-5 text-accent soft-pulse" />
+          </div>
+          <div className="my-auto py-8 text-center">
+            <div className="text-4xl md:text-5xl font-black font-mono tracking-tighter text-espresso dark:text-alabaster tabular-nums">
+              {formatClock(time)}
+            </div>
+            <div className="text-[10px] text-espresso/30 dark:text-alabaster/30 mt-3 font-mono font-bold uppercase tracking-[0.1em]">
+              SYSTEM TICK • 3000 INGRESS
+            </div>
+          </div>
+          <div className="flex items-center space-x-3 bg-parchment dark:bg-espresso-surface-bright text-accent rounded-2xl p-3 border border-sand dark:border-espresso-surface transition-colors">
+            <Sparkles className="w-4 h-4 flex-shrink-0" />
+            <span className="text-[11px] font-bold leading-tight italic">Groq Intelligence Engine optimized.</span>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Bento Board Overview Rows */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* Habit Completion Card */}
+        <div className="clay-card p-6 flex flex-col justify-between group">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-[10px] font-black text-espresso/40 dark:text-alabaster/40 uppercase tracking-[0.2em]">Habit Integrity</h3>
+            <Flame className="w-5 h-5 text-accent transition-transform group-hover:scale-110" />
+          </div>
+          <div className="flex items-center space-x-5">
+            <div className="relative flex items-center justify-center">
+              {/* Custom SVG Radial Ring */}
+              <svg className="w-20 h-20 transform -rotate-90">
+                <circle cx="40" cy="40" r="32" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-sand/20 dark:text-espresso-surface-bright" />
+                <circle cx="40" cy="40" r="32" stroke="currentColor" strokeWidth="6" fill="transparent"
+                  strokeDasharray={`${2 * Math.PI * 32}`}
+                  strokeDashoffset={`${2 * Math.PI * 32 * (1 - habitCompletionRate / 100)}`}
+                  className="text-accent transition-all duration-700 ease-out"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="absolute text-sm font-black text-espresso dark:text-alabaster font-mono">
+                {habitCompletionRate}%
+              </span>
+            </div>
+            <div className="min-w-0">
+              <div className="text-2xl font-black text-espresso dark:text-alabaster font-mono tracking-tighter">
+                {completedHabitsCount}<span className="text-xs text-espresso/30 mx-0.5">/</span>{totalHabitsCount}
+              </div>
+              <p className="text-[10px] font-bold text-espresso/50 dark:text-alabaster/50 mt-1 leading-tight">
+                Consecutive daily routine actions.
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setActiveTab('habits')}
+            className="mt-6 w-full bg-parchment dark:bg-espresso-surface-bright hover:bg-sand dark:hover:bg-espresso-surface border border-sand dark:border-espresso-surface-bright text-accent font-black text-[10px] uppercase tracking-widest py-3 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer shadow-sm active:scale-95"
+          >
+            <span>Open Habit Matrix</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Task Priorities Card */}
+        <div className="clay-card p-6 flex flex-col justify-between group">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-[10px] font-black text-espresso/40 dark:text-alabaster/40 uppercase tracking-[0.2em]">Action Pipeline</h3>
+            <Layers className="w-5 h-5 text-accent transition-transform group-hover:translate-y-[-2px]" />
+          </div>
+          <div>
+            <div className="text-2xl font-black text-espresso dark:text-alabaster font-mono tracking-tighter">
+              {remainingTasksCount}
+            </div>
+            <p className="text-[10px] font-bold text-espresso/50 dark:text-alabaster/50 mt-1">
+              Outstanding tasks remaining in cycle.
+            </p>
+            {urgentTasks.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                <span className="text-[9px] font-black uppercase tracking-widest bg-accent/10 text-accent px-2.5 py-1 rounded-full">
+                  High Priority
+                </span>
+                <div className="space-y-1.5 mt-2 text-[11px] font-bold text-espresso/80 dark:text-alabaster/80">
+                  {urgentTasks.map(t => (
+                    <div key={t.id} className="flex items-center space-x-2 bg-parchment/50 dark:bg-espresso-surface-bright/30 p-1.5 rounded-lg border border-sand/30 dark:border-white/5">
+                      <CheckCircle2 className="w-3 h-3 text-accent flex-shrink-0" />
+                      <span className="truncate">{t.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 p-3 rounded-xl flex items-center space-x-2 font-black uppercase tracking-wider border border-emerald-500/20">
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>Inbox Zero Status</span>
+              </div>
+            )}
+          </div>
+          <button 
+            onClick={() => setActiveTab('tasks')}
+            className="mt-6 w-full bg-parchment dark:bg-espresso-surface-bright hover:bg-sand dark:hover:bg-espresso-surface border border-sand dark:border-espresso-surface-bright text-accent font-black text-[10px] uppercase tracking-widest py-3 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer shadow-sm active:scale-95"
+          >
+            <span>Manage Board</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Expense Wallet Card */}
+        <div className="clay-card p-6 flex flex-col justify-between group">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-[10px] font-black text-espresso/40 dark:text-alabaster/40 uppercase tracking-[0.2em]">Monthly Budget</h3>
+            <Coins className="w-5 h-5 text-accent transition-transform group-hover:rotate-12" />
+          </div>
+          <div>
+            <div className="text-2xl font-black text-espresso dark:text-alabaster font-mono tracking-tighter">
+              R{thisMonthExpenses.toFixed(2)}
+            </div>
+            <div className="text-[10px] font-bold text-espresso/50 dark:text-alabaster/50 mt-1 flex justify-between">
+              <span>Spend Velocity</span>
+              <span className="font-black text-accent">R{budgetLimit} LIMIT</span>
+            </div>
+            {/* Custom Visual Bar */}
+            <div className="w-full bg-sand/20 dark:bg-espresso-surface-bright h-2.5 rounded-full overflow-hidden mt-4 border border-sand/30 dark:border-white/5">
+              <div 
+                className={`h-full rounded-full transition-all duration-700 ease-out ${
+                  budgetPercentage > 85 ? 'bg-red-500' : 'bg-accent'
+                }`}
+                style={{ width: `${budgetPercentage}%` }}
+              />
+            </div>
+          </div>
+          <button 
+            onClick={() => setActiveTab('finance')}
+            className="mt-6 w-full bg-parchment dark:bg-espresso-surface-bright hover:bg-sand dark:hover:bg-espresso-surface border border-sand dark:border-espresso-surface-bright text-accent font-black text-[10px] uppercase tracking-widest py-3 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer shadow-sm active:scale-95"
+          >
+            <span>Audit Wallet</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+      {/* Main Bottom Section: Daily Habits checkoff & Quick Tasks list */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Rapid Habit Toggle Matrix */}
+        <div className="clay-card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-accent/10 rounded-xl">
+                <Smile className="w-5 h-5 text-accent" />
+              </div>
+              <h2 className="text-base font-black text-espresso dark:text-alabaster uppercase tracking-tight">Active Matrix</h2>
+            </div>
+            <span className="text-[10px] font-black text-espresso/40 dark:text-alabaster/40 font-mono tracking-widest">TODAY</span>
+          </div>
+          
+          {habitsToday.length > 0 ? (
+            <div className="space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
+              {habitsToday.map((habit) => {
+                const isCompletedToday = !!habit.history[todayStr];
+                return (
+                  <div 
+                    key={habit.id}
+                    onClick={() => toggleHabit(habit.id)}
+                    className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-200 cursor-pointer group ${
+                      isCompletedToday 
+                        ? 'bg-accent/5 border-accent/20 dark:bg-accent/10' 
+                        : 'bg-parchment/50 dark:bg-espresso-surface-bright/50 border-sand dark:border-espresso-surface-bright/50 hover:border-accent/40'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-4 min-w-0">
+                      <div className={`w-6 h-6 rounded-lg border flex items-center justify-center flex-shrink-0 transition-all ${
+                        isCompletedToday 
+                          ? 'bg-accent border-accent text-white scale-110 shadow-sm' 
+                          : 'border-sand dark:border-espresso-surface-bright text-transparent bg-white dark:bg-espresso-surface'
+                      }`}>
+                        {isCompletedToday && <CheckSquare className="w-4 h-4" />}
+                      </div>
+                      <span className={`text-sm font-bold truncate transition-all duration-300 ${
+                        isCompletedToday ? 'text-espresso/40 dark:text-alabaster/40 line-through' : 'text-espresso dark:text-alabaster'
+                      }`}>
+                        {habit.name}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-espresso/40 dark:text-alabaster/40 bg-sand/20 dark:bg-black/20 px-2 py-1 rounded-md">
+                        {habit.category}
+                      </span>
+                      <div className="flex items-center space-x-1 text-accent">
+                        <Flame className="w-4 h-4 fill-accent" />
+                        <span className="text-xs font-black font-mono">{habit.streak}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-12 text-center text-espresso/30 dark:text-alabaster/30 text-xs font-mono font-bold uppercase tracking-widest italic">
+              No active matrices.
+            </div>
+          )}
+        </div>
+
+        {/* High Leverage Focus list */}
+        <div className="clay-card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-accent/10 rounded-xl">
+                <CheckSquare className="w-5 h-5 text-accent" />
+              </div>
+              <h2 className="text-base font-black text-espresso dark:text-alabaster uppercase tracking-tight">Active Pipeline</h2>
+            </div>
+            <span className="text-[10px] font-black text-accent font-mono tracking-widest uppercase">{incompleteTasks.length} PENDING</span>
+          </div>
+
+          {incompleteTasks.length > 0 ? (
+            <div className="space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
+              {incompleteTasks.slice(0, 5).map((task) => (
+                <div 
+                  key={task.id}
+                  className="flex items-center justify-between p-4 bg-parchment/30 dark:bg-espresso-surface-bright/20 rounded-2xl border border-sand dark:border-white/5 hover:border-accent/40 transition-all duration-200"
+                >
+                  <div className="flex items-center space-x-4 min-w-0">
+                    <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${
+                      task.priority === 'high' ? 'bg-red-500 animate-pulse' : task.priority === 'medium' ? 'bg-accent' : 'bg-sand'
+                    }`} />
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-bold text-espresso dark:text-alabaster truncate">{task.title}</h4>
+                      {task.dueDate && (
+                        <p className="text-[9px] text-espresso/40 dark:text-alabaster/40 font-mono font-black mt-1 uppercase tracking-widest">Due: {task.dueDate}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <span className="text-[9px] uppercase tracking-widest font-black bg-accent/10 text-accent px-3 py-1.5 rounded-full whitespace-nowrap shadow-sm">
+                    {task.category}
+                  </span>
+                </div>
+              ))}
+              {incompleteTasks.length > 5 && (
+                <div className="text-center pt-4">
+                  <button 
+                    onClick={() => setActiveTab('tasks')}
+                    className="text-[10px] font-black text-accent hover:text-accent-hover uppercase tracking-widest underline decoration-accent/20 underline-offset-4 cursor-pointer transition-all"
+                  >
+                    View all {incompleteTasks.length} pipeline items
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="py-12 text-center text-espresso/30 dark:text-alabaster/30 text-xs font-mono font-bold uppercase tracking-widest italic">
+              Pipeline Zero achieved.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
