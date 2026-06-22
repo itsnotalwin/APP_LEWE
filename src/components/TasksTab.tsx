@@ -162,6 +162,25 @@ export default function TasksTab({ data, updateData, getCurrentDate }: TasksTabP
       return 0; // standard insertion layout
     });
 
+  // Action Progress HUD calculations
+  const totalTasksCount = data.tasks.length;
+  const completedTasksCount = data.tasks.filter(t => t.completed).length;
+  const progressPercentage = totalTasksCount > 0 
+    ? Math.round((completedTasksCount / totalTasksCount) * 100) 
+    : 0;
+
+  const matchedProject = filterProjectId !== 'All' 
+    ? data.projects.find(p => p.id === filterProjectId) 
+    : null;
+  const projectTasks = filterProjectId === 'All' 
+    ? data.tasks 
+    : data.tasks.filter(t => t.projectId === filterProjectId);
+  const totalProjectTasks = projectTasks.length;
+  const completedProjectTasks = projectTasks.filter(t => t.completed).length;
+  const projectProgressPercentage = totalProjectTasks > 0 
+    ? Math.round((completedProjectTasks / totalProjectTasks) * 100) 
+    : 0;
+
   return (
     <div className="space-y-6">
 
@@ -301,6 +320,45 @@ export default function TasksTab({ data, updateData, getCurrentDate }: TasksTabP
 
         {/* Task lists & Action creator */}
         <div className="lg:col-span-3 space-y-6">
+          
+          {/* Subtle Progress Bar Info HUD */}
+          <div className="clay-card p-5 border border-sand dark:border-white/5 bg-parchment/40 dark:bg-espresso-surface/40 shadow-sm relative overflow-hidden transition-all duration-300">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <div className="space-y-1">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-accent flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                  {filterProjectId !== 'All' && matchedProject 
+                    ? `Project Vector: ${matchedProject.name}` 
+                    : 'System Action Velocity'}
+                </h3>
+                <p className="text-[11px] font-bold text-espresso/80 dark:text-alabaster/80">
+                  {filterProjectId !== 'All' && matchedProject 
+                    ? 'Tracking commitment metrics for project execution' 
+                    : 'Consolidated operational throughput performance'}
+                </p>
+              </div>
+              <div className="flex flex-col sm:items-end">
+                <div className="flex items-baseline space-x-1.5 justify-end">
+                  <span className="text-xl font-black font-mono text-accent">
+                    {filterProjectId !== 'All' && matchedProject ? projectProgressPercentage : progressPercentage}%
+                  </span>
+                  <span className="text-[9px] font-mono font-bold text-espresso/40 dark:text-alabaster/40 uppercase tracking-wider">
+                    ({filterProjectId !== 'All' && matchedProject 
+                      ? `${completedProjectTasks}/${totalProjectTasks}` 
+                      : `${completedTasksCount}/${totalTasksCount}`} units)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Progress track */}
+            <div className="w-full h-2 rounded-full bg-sand/40 dark:bg-black/40 overflow-hidden relative border border-sand/10">
+              <div 
+                className="h-full bg-accent rounded-full transition-all duration-500 ease-out shadow-[0_0_8px_rgba(139,94,60,0.3)]"
+                style={{ width: `${filterProjectId !== 'All' && matchedProject ? projectProgressPercentage : progressPercentage}%` }}
+              />
+            </div>
+          </div>
           
           {/* Header row / Filter Toolbar */}
           <div className="clay-card p-6 space-y-6">
